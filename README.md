@@ -26,8 +26,6 @@ The disruption data is historical, not live/current TTC service status:
 - Subway disruptions: 2014-01-01 to 2019-12-31
 - Productivity data: 2019-2024 annual surface statistics, with the map using 2024 values
 
-Station closures were not kept as a website layer because the local subway disruption file only contained one explicit station-closure record.
-
 ## Notes
 
-The website is meant as a lightweight visualization companion to the TTC network-analysis project. It does not run routing algorithms directly in the browser; it displays prepared stop, route, and disruption metrics for accessible map exploration.
+The website is meant as a lightweight visualization companion to the TTC network-analysis project. It does not run routing algorithms directly in the browser but it displays prepared stop, route, and disruption metrics for accessible map exploration.
