@@ -45,13 +45,17 @@
     const metrics = window.TTC_ANALYSIS_METRICS || {};
     const metricLayers = {
       service: L.layerGroup(),
+      hubs: L.layerGroup(),
       productivity: L.layerGroup(),
-      delays: L.layerGroup()
+      disruptions: L.layerGroup(),
+      interruptions: L.layerGroup()
     };
     const metricConfig = {
       service: { title: 'Service Intensity', low: 'Fewer', high: 'More', note: 'Scheduled stop visits from GTFS stop_times', unit: 'visits', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      hubs: { title: 'Transit Hubs', low: 'Less connected', high: 'More connected', note: 'Distinct GTFS routes and modes connected at each stop or station group', unit: 'hub score', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
       productivity: { title: 'Route Productivity', low: 'Lower', high: 'Higher', note: '2024 passengers per vehicle hour by route', unit: 'passengers/vehicle hour', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      delays: { title: 'Delay Hotspots', low: 'Lower', high: 'Higher', note: 'Total disruption delay minutes by route or subway station', unit: 'delay min', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
+      disruptions: { title: 'Network Disruptions', low: 'Lower impact', high: 'Higher impact', note: 'Total delay minutes by route or subway station, historical 2014-2019 records', unit: 'delay min', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      interruptions: { title: 'Interrupted Routes', low: 'Fewer', high: 'More', note: 'Diversion and off-route records by bus/streetcar route, historical 2014-2019 CSV', unit: 'interruption records', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
     };
     const metricRanges = {};
     let activeView = 'mode';
@@ -78,18 +82,27 @@
     function metricForStop(stop, view) {
       const route = routeKey(stop[5]);
       if (view === 'service') return Number(metrics.serviceByStopId?.[stop[4]]) || 0;
+      if (view === 'hubs') return Number(metrics.hubByStopId?.[stop[4]]?.score) || 0;
       if (view === 'productivity') return Number(metrics.productivityByRoute?.[route]) || 0;
-      if (view === 'delays') {
+      if (view === 'disruptions') {
         const stationDelay = metrics.delayByStationName?.[stationKey(stop[3])]?.delayMinutes;
         const routeDelay = metrics.delayByRoute?.[route]?.delayMinutes;
         return Number(stationDelay || routeDelay) || 0;
       }
+      if (view === 'interruptions') return Number(metrics.interruptionByRoute?.[route]?.incidents) || 0;
       return 0;
+    }
+    function disruptionForStop(stop) {
+      const route = routeKey(stop[5]);
+      return metrics.delayByStationName?.[stationKey(stop[3])] || metrics.delayByRoute?.[route] || null;
+    }
+    function interruptionForStop(stop) {
+      return metrics.interruptionByRoute?.[routeKey(stop[5])] || null;
     }
     function metricRange(view) {
       if (!metricRanges[view]) {
         const values = stops.map(stop => metricForStop(stop, view)).filter(value => Number.isFinite(value) && value > 0);
-        metricRanges[view] = { min: Math.min(...values), max: Math.max(...values) };
+        metricRanges[view] = values.length ? { min: Math.min(...values), max: Math.max(...values) } : { min: 0, max: 1 };
       }
       return metricRanges[view];
     }
@@ -116,7 +129,10 @@
     }
     function popupHtml(stop) {
       const route = stop[5] ? `<br>Route: ${stop[5]}` : '';
-      return `<div class="popup-title">${stop[3] || 'TTC Stop'}</div><div class="popup-meta">Stop ID: ${stop[4]}<br>Mode: ${stop[2]}${route}<br>Service visits: ${formattedMetric(metricForStop(stop, 'service'))}<br>Productivity: ${formattedMetric(metricForStop(stop, 'productivity'))}<br>Delay minutes: ${formattedMetric(metricForStop(stop, 'delays'))}</div>`;
+      const hub = metrics.hubByStopId?.[stop[4]];
+      const disruption = disruptionForStop(stop);
+      const interruption = interruptionForStop(stop);
+      return `<div class="popup-title">${stop[3] || 'TTC Stop'}</div><div class="popup-meta">Stop ID: ${stop[4]}<br>Mode: ${stop[2]}${route}<br>Service visits: ${formattedMetric(metricForStop(stop, 'service'))}<br>Hub routes: ${formattedMetric(hub?.routes)}<br>Hub modes: ${formattedMetric(hub?.modes)}<br>Productivity: ${formattedMetric(metricForStop(stop, 'productivity'))}<br>Disruption incidents: ${formattedMetric(disruption?.incidents)}<br>Disruption delay minutes: ${formattedMetric(disruption?.delayMinutes)}<br>Interrupted-route records: ${formattedMetric(interruption?.incidents)}</div>`;
     }
     function addStopsChunked(index = 0) {
       const end = Math.min(index + 700, stops.length);
@@ -147,7 +163,7 @@
     const tabs = L.control({ position: 'topright' });
     tabs.onAdd = function () {
       const div = L.DomUtil.create('div', 'view-tabs');
-      div.innerHTML = `<button class="view-tab active" type="button" data-view="mode">Mode</button><button class="view-tab" type="button" data-view="service">Service Intensity</button><button class="view-tab" type="button" data-view="productivity">Productivity</button><button class="view-tab" type="button" data-view="delays">Delay Hotspots</button>`;
+      div.innerHTML = `<button class="view-tab active" type="button" data-view="mode">Mode</button><button class="view-tab" type="button" data-view="service">Service Intensity</button><button class="view-tab" type="button" data-view="hubs">Transit Hubs</button><button class="view-tab" type="button" data-view="productivity">Productivity</button><button class="view-tab" type="button" data-view="disruptions">Network Disruptions</button><button class="view-tab" type="button" data-view="interruptions">Interrupted Routes</button>`;
       div.querySelectorAll('.view-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
       L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div); return div;
     };
