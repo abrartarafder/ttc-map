@@ -7,9 +7,6 @@ This repo contains a small static website for exploring TTC stops and historical
 - `ttc_interactive.html` - the interactive Leaflet map, controls, popups, legends, and layer switching.
 - `ttc_metric_layers.js` - generated metric data used by the map, including service intensity, transit hub scores, route productivity, delay totals, and interrupted-route counts.
 
-## How to Open
-
-Open `ttc_interactive.html` in a browser. The page loads external Leaflet and basemap assets from CDNs, so an internet connection is needed for the map tiles and Leaflet library.
 
 ## Map Layers
 
