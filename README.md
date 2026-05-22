@@ -1,6 +1,6 @@
 # TTC Interactive Website
 
-This folder contains a small static website for exploring TTC stops and historical network metrics. The site is made from one HTML file and one generated JavaScript data file.
+This repo contains a small static website for exploring TTC stops and historical network metrics. The site is made from one HTML file and one generated JavaScript data file.
 
 ## Files
 
