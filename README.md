@@ -28,4 +28,5 @@ The disruption data is historical, not live/current TTC service status:
 
 ## Notes
 
-The website is meant as a lightweight visualization companion to the TTC network-analysis project. It does not run routing algorithms directly in the browser but it displays prepared stop, route, and disruption metrics for accessible map exploration.
+- The website is meant as a lightweight visualization companion to the TTC network-analysis project. It does not run routing algorithms directly in the browser but it displays prepared stop, route, and disruption metrics for accessible map exploration.
+- The visualization system uses basic mathematical normalization and scaling techniques to convert TTC transit and disruption data into interactive map visuals. Values such as delay intensity and route productivity are normalized to the range 0-1 using min-max scaling, allowing marker sizes and colours to scale proportionally across the network. This helps highlight high-intensity transit regions, disruptions, and important network areas in a visually consistent and interpretable way.
