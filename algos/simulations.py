@@ -5,7 +5,7 @@ TTC Disruption Simulation
 2. Picks one source and destination stop.
 3. Runs Dijkstra and A* with no disruption.
 4. Creates simple disruptions:
-   - delays: increase edge weights
+   - delays: increase edge weights and locally detour around the delayed segment
    - station closure: remove stops
    - route interruption: remove edges
 5. Runs Dijkstra and A* again after each disruption.
@@ -36,6 +36,12 @@ matplotlib.use("Agg")
 
 sys.path.insert(0, os.path.dirname(__file__))
 from graphBuilder import build_graph
+from routing_detour import (
+    detour_window_indices,
+    get_important_stops_on_route,
+    make_delay_graph,
+    stitch_detour_path,
+)
 
 
 OUTPUT_DIR = "outputs"
@@ -190,16 +196,6 @@ def choose_route(graph):
             pass
 
 
-def get_important_stops_on_route(graph, path, count):
-    """
-    Choose important stops from the selected route.
-    Important means the stop has many connections.
-    """
-    middle_stops = path[1:-1]
-    ranked_stops = sorted(middle_stops, key=lambda stop: graph.degree(stop), reverse=True)
-    return ranked_stops[:count]
-
-
 def stop_names(graph, stops):
     """Convert stop ids into readable stop names."""
     return [graph.nodes[stop].get("name", str(stop)) for stop in stops]
@@ -220,18 +216,65 @@ def create_delay_scenario(graph, baseline_path):
     Delay scenario:
     Increase edge weights around a few important stops.
     """
-    delayed_graph = graph.copy()
     delayed_stops = get_important_stops_on_route(graph, baseline_path, NUM_DELAYED_STOPS)
-
-    for u, v, edge_data in delayed_graph.edges(data=True):
-        if u in delayed_stops or v in delayed_stops:
-            edge_data["weight"] = edge_data.get("weight", 1) * DELAY_MULTIPLIER
+    delayed_graph = make_delay_graph(graph, delayed_stops, DELAY_MULTIPLIER)
 
     reason = (
-        "Simulated service delay: edge weights near selected stops were increased "
-        f"by {DELAY_MULTIPLIER}x."
+        "Simulated service detour: edge weights near selected stops were increased "
+        f"by {DELAY_MULTIPLIER}x, and the route detours around that delayed segment."
     )
     return delayed_graph, "delays", reason, stop_names(graph, delayed_stops), []
+
+
+def run_delay_detour(graph, source, target, baseline_path, delayed_stops, algorithm):
+    """Reroute only the disrupted window instead of recomputing the whole trip."""
+    delayed_graph = make_delay_graph(graph, delayed_stops, DELAY_MULTIPLIER)
+    window = detour_window_indices(baseline_path, delayed_stops)
+    if window is None:
+        runner = run_dijkstra if algorithm == "Dijkstra" else run_astar
+        return runner(delayed_graph, source, target)
+
+    start_time = time.perf_counter()
+    try:
+        start_idx, end_idx = window
+        entry_node = baseline_path[start_idx]
+        exit_node = baseline_path[end_idx]
+        weight_function, counter = make_weight_counter()
+
+        if algorithm == "Dijkstra":
+            detour_segment = nx.dijkstra_path(delayed_graph, entry_node, exit_node, weight=weight_function)
+        else:
+            detour_segment = nx.astar_path(
+                delayed_graph,
+                entry_node,
+                exit_node,
+                heuristic=astar_heuristic(delayed_graph, exit_node),
+                weight=weight_function,
+            )
+
+        path = stitch_detour_path(baseline_path, detour_segment, start_idx, end_idx)
+        runtime = time.perf_counter() - start_time
+
+        return {
+            "algorithm": algorithm,
+            "status": "path_found",
+            "path": path,
+            "path_cost": calculate_path_cost(delayed_graph, path),
+            "hops": len(path) - 1,
+            "edges_evaluated": counter["edges_checked"],
+            "runtime_s": runtime,
+        }
+    except (nx.NetworkXNoPath, nx.NodeNotFound):
+        runner = run_dijkstra if algorithm == "Dijkstra" else run_astar
+        return runner(delayed_graph, source, target)
+
+
+def run_delay_detour_algorithms(graph, source, target, baseline_path, delayed_stops):
+    """Run both algorithms using a local reroute around the delayed window."""
+    return [
+        run_delay_detour(graph, source, target, baseline_path, delayed_stops, "Dijkstra"),
+        run_delay_detour(graph, source, target, baseline_path, delayed_stops, "A*"),
+    ]
 
 
 def create_station_closure_scenario(graph, baseline_path):
@@ -540,6 +583,7 @@ def main():
     print(f"Original route length: {len(baseline_path) - 1} hops")
 
     rows = []
+    delayed_stops = get_important_stops_on_route(graph, baseline_path, NUM_DELAYED_STOPS)
 
     print("\nRunning no-disruption case...")
     no_disruption_results = run_both_algorithms(graph, source, target)
@@ -564,7 +608,10 @@ def main():
             for edge in affected_edges:
                 print(f"      - {edge}")
 
-        disruption_results = run_both_algorithms(disrupted_graph, source, target)
+        if scenario_name == "delays":
+            disruption_results = run_delay_detour_algorithms(graph, source, target, baseline_path, delayed_stops)
+        else:
+            disruption_results = run_both_algorithms(disrupted_graph, source, target)
         add_results(
             rows,
             scenario_name,

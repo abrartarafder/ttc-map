@@ -143,20 +143,22 @@
     const routingColors = { Dijkstra: '#f59e0b', 'A*': '#2563eb' };
     const routingSampleViews = {
       dijkstraSample: {
-        label: 'Dijkstra Sample',
+        label: 'Dijkstra Detour',
         scenario: 'delays',
         algorithm: 'Dijkstra',
-        routeLabel: 'Dijkstra route',
+        scenarioLabel: 'Delay detour',
+        routeLabel: 'Detour route',
         routeClass: 'dijkstra',
-        description: 'Delays scenario on the actual TTC map. The regular route is red and the Dijkstra path is orange.'
+        description: 'Delay detour on the actual TTC map. The regular route is red and the sample path reroutes around the delayed segment in orange.'
       },
       astarSample: {
-        label: 'A* Sample',
+        label: 'A* Detour',
         scenario: 'delays',
         algorithm: 'A*',
-        routeLabel: 'A* route',
+        scenarioLabel: 'Delay detour',
+        routeLabel: 'Detour route',
         routeClass: 'astar',
-        description: 'Delays scenario on the actual TTC map. The regular route is red and the A* path is blue.'
+        description: 'Delay detour on the actual TTC map. The regular route is red and the sample path reroutes around the delayed segment in blue.'
       }
     };
     const viewTabGroups = [
@@ -171,8 +173,8 @@
         views: [
           { view: 'disruptions', label: 'Network Disruptions' },
           { view: 'interruptions', label: 'Interrupted Routes' },
-          { view: 'dijkstraSample', label: 'Dijkstra Sample' },
-          { view: 'astarSample', label: 'A* Sample' }
+          { view: 'dijkstraSample', label: 'Dijkstra Detour' },
+          { view: 'astarSample', label: 'A* Detour' }
         ]
       },
       {
@@ -360,7 +362,7 @@
       const routeClass = escapeHtml(config.routeClass);
       const routeLabel = escapeHtml(config.routeLabel);
       const sameRoute = baselineData && algorithmData && routingPathMatches(baselineData.path, algorithmData.path);
-      return `<div class="legend-title">${escapeHtml(config.label)}</div><div class="legend-description">${escapeHtml(scenario?.reason || 'Simulation scenario')} on the actual TTC map. Red is the regular route, while the sample path is overlaid in ${config.algorithm === 'Dijkstra' ? 'orange' : 'blue'}. Small dots mark the stop nodes.</div><div class="routing-panel"><div class="routing-summary"><div class="routing-summary-title">${escapeHtml(sourceName)} → ${escapeHtml(destName)}</div><div class="routing-summary-grid"><span>Scenario</span><strong>${escapeHtml(config.scenario.replace(/_/g, ' '))}</strong><span>Sample</span><strong>${escapeHtml(pathLabel)}</strong><span>Path cost</span><strong>${algorithmData ? `${formattedMetric(algorithmData.path_cost)} cost` : 'No data'}</strong><span>Hops</span><strong>${algorithmData ? `${formattedMetric(algorithmData.hops)} hops` : 'No data'}</strong>${sameRoute ? '<span>Comparison</span><strong>Sample route matches the regular route</strong>' : ''}</div></div><div class="routing-route-key"><div class="routing-route-row"><span class="routing-route-line base"></span>Regular route</div><div class="routing-route-row"><span class="routing-route-line ${routeClass}"></span>${routeLabel}</div></div></div>`;
+      return `<div class="legend-title">${escapeHtml(config.label)}</div><div class="legend-description">${escapeHtml(config.description || scenario?.reason || 'Simulation scenario')} Small dots mark the stop nodes.</div><div class="routing-panel"><div class="routing-summary"><div class="routing-summary-title">${escapeHtml(sourceName)} → ${escapeHtml(destName)}</div><div class="routing-summary-grid"><span>Scenario</span><strong>${escapeHtml(config.scenarioLabel || config.scenario.replace(/_/g, ' '))}</strong><span>Sample</span><strong>${escapeHtml(pathLabel)}</strong><span>Path cost</span><strong>${algorithmData ? `${formattedMetric(algorithmData.path_cost)} cost` : 'No data'}</strong><span>Hops</span><strong>${algorithmData ? `${formattedMetric(algorithmData.hops)} hops` : 'No data'}</strong>${sameRoute ? '<span>Comparison</span><strong>Sample route matches the regular route</strong>' : ''}</div></div><div class="routing-route-key"><div class="routing-route-row"><span class="routing-route-line base"></span>Regular route</div><div class="routing-route-row"><span class="routing-route-line ${routeClass}"></span>${routeLabel}</div></div></div>`;
     }
     function renderRoutingSample(fitToBounds = false) {
       routingLayer.clearLayers();

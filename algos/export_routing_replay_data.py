@@ -13,6 +13,7 @@ import json
 import math
 import os
 import sys
+import time
 from pathlib import Path
 
 import networkx as nx
@@ -33,6 +34,12 @@ NUM_INTERRUPTED_EDGES = 4
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from graphBuilder import build_graph  # noqa: E402
+from routing_detour import (
+    detour_window_indices,
+    get_important_stops_on_route,
+    make_delay_graph,
+    stitch_detour_path,
+)
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -116,23 +123,6 @@ def run_astar(graph, source, target):
     }
 
 
-def get_important_stops_on_route(graph, path, count):
-    """Match the disruption script's 'important stops' selection."""
-    middle_stops = path[1:-1]
-    ranked_stops = sorted(middle_stops, key=lambda stop: graph.degree(stop), reverse=True)
-    return ranked_stops[:count]
-
-
-def make_delay_graph(graph, baseline_path):
-    """Apply the same delay scenario used in the saved outputs."""
-    delayed_graph = graph.copy()
-    delayed_stops = get_important_stops_on_route(graph, baseline_path, NUM_DELAYED_STOPS)
-    for u, v, edge_data in delayed_graph.edges(data=True):
-        if u in delayed_stops or v in delayed_stops:
-            edge_data["weight"] = edge_data.get("weight", 1) * DELAY_MULTIPLIER
-    return delayed_graph
-
-
 def make_station_closure_graph(graph, baseline_path):
     """Apply the same station-closure scenario used in the saved outputs."""
     closed_graph = graph.copy()
@@ -149,6 +139,47 @@ def make_route_interruption_graph(graph, baseline_path):
     edges_to_remove = route_edges[start : start + NUM_INTERRUPTED_EDGES]
     interrupted_graph.remove_edges_from(edges_to_remove)
     return interrupted_graph
+
+
+def run_delay_detour(graph, source, target, baseline_path, delayed_stops, algorithm):
+    """Rebuild the delay scenario as a local detour around the affected window."""
+    delayed_graph = make_delay_graph(graph, delayed_stops, DELAY_MULTIPLIER)
+    window = detour_window_indices(baseline_path, delayed_stops)
+    if window is None:
+        runner = run_dijkstra if algorithm == "Dijkstra" else run_astar
+        return runner(delayed_graph, source, target)
+
+    start_idx, end_idx = window
+    entry_node = baseline_path[start_idx]
+    exit_node = baseline_path[end_idx]
+
+    weight_fn, counter = make_weight_counter()
+    start_time = time.perf_counter()
+
+    try:
+        if algorithm == "Dijkstra":
+            detour_segment = nx.dijkstra_path(delayed_graph, entry_node, exit_node, weight=weight_fn)
+        else:
+            detour_segment = nx.astar_path(
+                delayed_graph,
+                entry_node,
+                exit_node,
+                heuristic=astar_heuristic(delayed_graph, exit_node),
+                weight=weight_fn,
+            )
+
+        path = stitch_detour_path(baseline_path, detour_segment, start_idx, end_idx)
+        runtime = time.perf_counter() - start_time
+        return {
+            "path": [int(node) for node in path],
+            "path_cost": round(calculate_path_cost(delayed_graph, path), 2),
+            "hops": len(path) - 1,
+            "edges_evaluated": counter["edges_checked"],
+            "runtime_s": runtime,
+        }
+    except (nx.NetworkXNoPath, nx.NodeNotFound):
+        runner = run_dijkstra if algorithm == "Dijkstra" else run_astar
+        return runner(delayed_graph, source, target)
 
 
 def node_name(graph, stop_id):
@@ -208,29 +239,43 @@ def build_simulation_scenarios(graph):
         source = int(row["source_id"])
         target = int(row["target_id"])
         baseline_path = nx.dijkstra_path(graph, source, target, weight="weight")
+        delayed_stops = get_important_stops_on_route(graph, baseline_path, NUM_DELAYED_STOPS)
 
         if scenario_name == "no_disruption":
             scenario_graph = graph
         elif scenario_name == "delays":
-            scenario_graph = make_delay_graph(graph, baseline_path)
+            scenario_graph = make_delay_graph(graph, delayed_stops, DELAY_MULTIPLIER)
         elif scenario_name == "station_closure":
             scenario_graph = make_station_closure_graph(graph, baseline_path)
         else:
             scenario_graph = make_route_interruption_graph(graph, baseline_path)
 
+        if scenario_name == "delays":
+            algorithms = {
+                "Dijkstra": run_delay_detour(graph, source, target, baseline_path, delayed_stops, "Dijkstra"),
+                "A*": run_delay_detour(graph, source, target, baseline_path, delayed_stops, "A*"),
+            }
+            reason = (
+                "Simulated service detour: edge weights near selected stops were increased "
+                f"by {DELAY_MULTIPLIER}x, and the route detours around that delayed segment."
+            )
+        else:
+            algorithms = {
+                "Dijkstra": run_dijkstra(scenario_graph, source, target),
+                "A*": run_astar(scenario_graph, source, target),
+            }
+            reason = str(row["reason"])
+
         scenario_entry = {
             "scenario": scenario_name,
-            "reason": str(row["reason"]),
+            "reason": reason,
             "affected_stops": split_semicolon(row["affected_stops"]),
             "affected_edges": split_semicolon(row["affected_edges"]),
             "source_id": source,
             "source_name": node_name(graph, source),
             "target_id": target,
             "target_name": node_name(graph, target),
-            "algorithms": {
-                "Dijkstra": run_dijkstra(scenario_graph, source, target),
-                "A*": run_astar(scenario_graph, source, target),
-            },
+            "algorithms": algorithms,
         }
         scenarios.append(scenario_entry)
 
