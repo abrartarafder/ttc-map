@@ -7,32 +7,75 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="ttc_metric_layers.js"></script>
+  <script src="type2_stop_metrics.js"></script>
+  <script src="outputs/routing_replay_data.js"></script>
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; }
     body { background: #efeee7; font-family: Arial, Helvetica, sans-serif; }
     #map { background: #e8e4d8; }
-    .legend { background: rgba(255,255,255,.94); color: #666; min-width: 210px; max-width: calc(100vw - 28px); padding: 18px 20px 20px; box-shadow: 0 1px 10px rgba(0,0,0,.10); border: 1px solid rgba(0,0,0,.04); line-height: 1.2; }
+    .legend { background: rgba(255,255,255,.95); color: #666; min-width: 210px; max-width: calc(100vw - 28px); padding: 18px 20px 20px; box-shadow: 0 8px 26px rgba(25,35,45,.16); border: 1px solid rgba(30,45,60,.08); border-radius: 8px; line-height: 1.2; backdrop-filter: blur(8px); }
     .legend-title { color: #3f3f3f; font-size: 17px; font-weight: 700; margin: 0 0 16px; white-space: nowrap; }
     .legend-row { display: flex; align-items: center; gap: 12px; font-size: 14px; margin: 13px 0; }
     .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1px rgba(255,255,255,.72), 0 0 0 2px rgba(0,0,0,.04); flex: 0 0 auto; }
-    .leaflet-control-layers { border: 0 !important; border-radius: 0 !important; box-shadow: 0 1px 10px rgba(0,0,0,.12) !important; color: #555; font: 13px Arial, Helvetica, sans-serif; }
-    .leaflet-control-zoom a { color: #555 !important; border-color: #ddd !important; }
-    .leaflet-popup-content-wrapper { border-radius: 3px; color: #444; }
-    .leaflet-popup-content { margin: 10px 12px; font-size: 13px; }
+    .leaflet-control-layers { border: 0 !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(25,35,45,.15) !important; color: #555; font: 13px Arial, Helvetica, sans-serif; overflow: hidden; }
+    .leaflet-control-zoom { border: 0 !important; box-shadow: 0 8px 24px rgba(25,35,45,.15) !important; }
+    .leaflet-control-zoom a { color: #555 !important; border-color: #e5e1d5 !important; }
+    .leaflet-popup-content-wrapper { border-radius: 8px; color: #444; box-shadow: 0 10px 28px rgba(20,30,40,.18); }
+    .leaflet-popup-content { margin: 10px 12px; font-size: 13px; max-width: min(280px, calc(100vw - 64px)); overflow-wrap: anywhere; }
     .popup-title { font-weight: 700; margin-bottom: 4px; color: #333; }
     .popup-meta { color: #777; line-height: 1.35; }
-    .view-tabs { background: rgba(255,255,255,.94); box-shadow: 0 1px 10px rgba(0,0,0,.10); display: flex; flex-wrap: wrap; max-width: min(390px, calc(100vw - 24px)); overflow: hidden; }
-    .view-tab { background: transparent; border: 0; color: #666; cursor: pointer; font: 700 13px Arial, Helvetica, sans-serif; padding: 10px 14px; }
-    .view-tab.active { background: #444; color: #fff; }
+    .view-tabs { background: rgba(255,255,255,.95); border: 1px solid rgba(30,45,60,.08); border-radius: 8px; box-shadow: 0 8px 26px rgba(25,35,45,.16); display: grid; gap: 10px; width: min(660px, calc(100vw - 24px)); max-width: calc(100vw - 24px); overflow: hidden; padding: 8px; backdrop-filter: blur(8px); }
+    .view-tab-section { display: grid; gap: 5px; }
+    .view-tab-section + .view-tab-section { padding-top: 8px; border-top: 1px solid rgba(30,45,60,.08); }
+    .view-tab-section-title { color: #7c8794; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .view-tab-row { display: flex; flex-wrap: wrap; gap: 3px; }
+    .view-tab { background: transparent; border: 0; border-radius: 6px; color: #5b6470; cursor: pointer; font: 700 13px Arial, Helvetica, sans-serif; padding: 9px 12px; }
+    .view-tab.active { background: #263238; color: #fff; }
     .legend-scale { width: 148px; height: 9px; background: linear-gradient(90deg, #3b82f6, #facc15, #ef4444); border: 1px solid rgba(0,0,0,.10); }
     .legend-note { color: #777; font-size: 12px; margin-top: 10px; }
+    .legend-description { color: #555; font-size: 13px; line-height: 1.35; margin-top: 12px; max-width: 270px; }
+    .routing-panel { display: grid; gap: 10px; }
+    .routing-control { display: grid; gap: 4px; }
+    .routing-control label { color: #444; font-size: 12px; font-weight: 700; }
+    .routing-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .routing-pill { background: rgba(255,255,255,.95); border: 1px solid rgba(30,45,60,.10); border-radius: 999px; color: #5b6470; cursor: pointer; font: 700 12px Arial, Helvetica, sans-serif; padding: 7px 10px; }
+    .routing-pill.active { background: #263238; border-color: #263238; color: #fff; }
+    .routing-summary { background: rgba(248,246,240,.82); border: 1px solid rgba(30,45,60,.08); border-radius: 8px; padding: 9px 10px; }
+    .routing-summary-title { color: #333; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .routing-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; font-size: 12px; line-height: 1.35; }
+    .routing-summary-grid span { color: #666; }
+    .routing-summary-grid strong { color: #333; font-weight: 700; }
+    .routing-node-list { max-height: 210px; overflow: auto; padding-right: 2px; }
+    .routing-node { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; font-size: 12px; line-height: 1.25; }
+    .routing-node-badge { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: #263238; color: #fff; font-size: 11px; font-weight: 700; }
+    .routing-node.source .routing-node-badge { background: #15803d; }
+    .routing-node.target .routing-node-badge { background: #b91c1c; }
+    .route-marker { background: rgba(38,50,56,.95); border: 2px solid #fff; border-radius: 999px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; height: 30px; width: 30px; box-shadow: 0 4px 10px rgba(0,0,0,.2); line-height: 1; text-shadow: 0 1px 0 rgba(0,0,0,.35); }
+    .route-marker.source { background: #15803d; }
+    .route-marker.target { background: #b91c1c; }
+    .route-marker.mid.dijkstra { background: #f59e0b; }
+    .route-marker.mid.astar { background: #2563eb; }
+    .routing-route-key { display: grid; gap: 6px; margin-top: 4px; }
+    .routing-route-row { color: #555; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; }
+    .routing-route-line { width: 40px; height: 4px; border-radius: 999px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,.85); }
+    .routing-route-line.base { background: #dc2626; }
+    .routing-route-line.dijkstra { background: #f59e0b; }
+    .routing-route-line.astar { background: #2563eb; }
     @media (max-width: 640px) {
-      .legend { min-width: 0; padding: 13px 14px 14px; }
+      .legend { min-width: 0; padding: 12px 13px 13px; }
       .legend-title { font-size: 15px; margin-bottom: 10px; }
       .legend-row { font-size: 13px; gap: 9px; margin: 9px 0; }
-      .view-tab { font-size: 12px; padding: 9px 12px; }
+      .legend-description { font-size: 12px; line-height: 1.3; max-width: none; }
+      .legend-note { font-size: 11px; }
+      .view-tabs { width: calc(100vw - 20px); max-width: calc(100vw - 20px); max-height: calc(100vh - 24px); padding: 7px; overflow-y: auto; overflow-x: hidden; }
+      .view-tab-section + .view-tab-section { padding-top: 6px; }
+      .view-tab-row { display: grid; grid-template-columns: 1fr; gap: 4px; overflow: visible; }
+      .view-tab { width: 100%; text-align: left; font-size: 12px; padding: 10px 11px; white-space: normal; }
+      .routing-summary-grid { grid-template-columns: 1fr; }
       .leaflet-top.leaflet-right { top: auto; bottom: 12px; }
       .leaflet-top.leaflet-right .leaflet-control { margin-top: 0; margin-bottom: 10px; }
+      .leaflet-top.leaflet-left { top: 8px; }
+      .leaflet-control-zoom a { width: 34px !important; height: 34px !important; line-height: 34px !important; }
     }
   </style>
 </head>
@@ -45,20 +88,80 @@
     const metrics = window.TTC_ANALYSIS_METRICS || {};
     const metricLayers = {
       service: L.layerGroup(),
-      hubs: L.layerGroup(),
+      majorHubs: L.layerGroup(),
+      bottlenecks: L.layerGroup(),
       productivity: L.layerGroup(),
       disruptions: L.layerGroup(),
       interruptions: L.layerGroup()
     };
     const metricConfig = {
-      service: { title: 'Service Intensity', low: 'Fewer', high: 'More', note: 'Scheduled stop visits from GTFS stop_times', unit: 'visits', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      hubs: { title: 'Transit Hubs', low: 'Less connected', high: 'More connected', note: 'Distinct GTFS routes and modes connected at each stop or station group', unit: 'hub score', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      productivity: { title: 'Route Productivity', low: 'Lower', high: 'Higher', note: '2024 passengers per vehicle hour by route', unit: 'passengers/vehicle hour', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      disruptions: { title: 'Network Disruptions', low: 'Lower impact', high: 'Higher impact', note: 'Total delay minutes by route or subway station, historical 2014-2019 records', unit: 'delay min', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      interruptions: { title: 'Interrupted Routes', low: 'Fewer', high: 'More', note: 'Diversion and off-route records by bus/streetcar route, historical 2014-2019 CSV', unit: 'interruption records', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
+      service: { title: 'How Often Stops Are Served', low: 'Less service', high: 'More service', note: 'scheduled arrivals at each stop', description: 'Use this to spot busy service areas. Bigger, warmer circles mean TTC vehicles are scheduled to stop there more often.', unit: 'scheduled arrivals', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      majorHubs: { title: 'Grouped Station Hubs', low: 'Smaller hub', high: 'Larger hub', note: 'number of stop/platform records grouped into one station area', description: 'Each circle is a station or hub area, not one single bus stop sign. Bigger circles mean many related stop/platform records were grouped together there.', unit: 'grouped stop records', gradient: 'linear-gradient(90deg, #14b8a6, #facc15, #ef4444)' },
+      bottlenecks: { title: 'Delay Hotspots', low: 'Lower delay', high: 'Higher delay', note: 'historical delay minutes linked to routes serving the hub', description: 'These are important hub areas where delays affected many connected routes. Bigger, warmer circles point to places with more historical delay pressure.', unit: 'delay minutes', gradient: 'linear-gradient(90deg, #6366f1, #f59e0b, #dc2626)' },
+      productivity: { title: 'Productivity', low: 'Less busy', high: 'More busy', note: '2024 riders per vehicle hour on the route', description: 'Shows stops on routes that carry more riders for each hour a TTC vehicle is running. Higher values mean the route is being used more heavily.', unit: 'riders per vehicle hour', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      disruptions: { title: 'Delay Concentration', low: 'Less delay', high: 'More delay', note: 'historical delay minutes by route or subway station', description: 'Shows where past delay records were concentrated. This is based on historical TTC disruption data, not live service.', unit: 'delay minutes', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      interruptions: { title: 'Route Interruptions', low: 'Fewer records', high: 'More records', note: 'historical diversion and off-route records', description: 'Shows routes with more records of diversions or vehicles going off route. This helps identify routes that had more service interruptions in the data.', unit: 'interruption records', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
     };
+    const modeDescription = 'Shows every mapped TTC stop. Color tells you whether the stop is mainly bus, streetcar, subway, or another stop type.';
     const metricRanges = {};
+    const recordRanges = {};
+    const type2MetricsByStopId = Object.assign({}, window.TTC_TYPE2_STOP_METRICS || {});
+    const stopById = {};
+    stops.forEach(stop => { stopById[String(stop[4])] = stop; });
+    const routingReplay = window.TTC_ROUTING_REPLAY || {};
+    const routingScenarios = routingReplay.simulation_scenarios || [];
+    const routingBaseColor = '#dc2626';
+    const routingColors = { Dijkstra: '#f59e0b', 'A*': '#2563eb' };
+    const routingSampleViews = {
+      dijkstraSample: {
+        label: 'Dijkstra Sample',
+        scenario: 'delays',
+        algorithm: 'Dijkstra',
+        routeLabel: 'Dijkstra route',
+        routeClass: 'dijkstra',
+        description: 'Delays scenario on the actual TTC map. The regular route is red and the Dijkstra path is orange.'
+      },
+      astarSample: {
+        label: 'A* Sample',
+        scenario: 'delays',
+        algorithm: 'A*',
+        routeLabel: 'A* route',
+        routeClass: 'astar',
+        description: 'Delays scenario on the actual TTC map. The regular route is red and the A* path is blue.'
+      }
+    };
+    const viewTabGroups = [
+      {
+        title: 'Overview',
+        views: [
+          { view: 'mode', label: 'Mode' }
+        ]
+      },
+      {
+        title: 'Type 1',
+        views: [
+          { view: 'disruptions', label: 'Network Disruptions' },
+          { view: 'interruptions', label: 'Interrupted Routes' },
+          { view: 'dijkstraSample', label: 'Dijkstra Sample' },
+          { view: 'astarSample', label: 'A* Sample' }
+        ]
+      },
+      {
+        title: 'Type 2',
+        views: [
+          { view: 'service', label: 'Service Intensity' },
+          { view: 'majorHubs', label: 'Transit Hubs' },
+          { view: 'bottlenecks', label: 'Delay Hotspots' },
+          { view: 'productivity', label: 'Productivity' }
+        ]
+      }
+    ];
+    const routingLayer = L.featureGroup();
+    const majorHubsByName = {};
+    const bottlenecksByName = {};
     let activeView = 'mode';
+    let stopsLoaded = false;
+    let stopsBoundsFit = false;
     const map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([43.716, -79.39], 10);
     const topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(map);
     const lightBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri' });
@@ -82,7 +185,6 @@
     function metricForStop(stop, view) {
       const route = routeKey(stop[5]);
       if (view === 'service') return Number(metrics.serviceByStopId?.[stop[4]]) || 0;
-      if (view === 'hubs') return Number(metrics.hubByStopId?.[stop[4]]?.score) || 0;
       if (view === 'productivity') return Number(metrics.productivityByRoute?.[route]) || 0;
       if (view === 'disruptions') {
         const stationDelay = metrics.delayByStationName?.[stationKey(stop[3])]?.delayMinutes;
@@ -111,7 +213,9 @@
       return Math.max(0, Math.min(1, (value - range.min) / (range.max - range.min || 1)));
     }
     function metricColor(view, value) {
-      const t = metricIntensity(view, value);
+      return colorFromIntensity(metricIntensity(view, value));
+    }
+    function colorFromIntensity(t) {
       if (t < 0.5) {
         const p = t / 0.5;
         const r = Math.round(59 + (250 - 59) * p), g = Math.round(130 + (204 - 130) * p), b = Math.round(246 + (21 - 246) * p);
@@ -121,18 +225,294 @@
       const r = Math.round(250 + (239 - 250) * p), g = Math.round(204 + (68 - 204) * p), b = Math.round(21 + (68 - 21) * p);
       return `rgb(${r}, ${g}, ${b})`;
     }
+    function recordRange(view, records, valueForRecord) {
+      if (!recordRanges[view]) {
+        const values = records.map(valueForRecord).filter(value => Number.isFinite(value) && value > 0);
+        recordRanges[view] = values.length ? { min: Math.min(...values), max: Math.max(...values) } : { min: 0, max: 1 };
+      }
+      return recordRanges[view];
+    }
+    function recordIntensity(view, value, records, valueForRecord) {
+      const range = recordRange(view, records, valueForRecord);
+      return Math.max(0, Math.min(1, (value - range.min) / (range.max - range.min || 1)));
+    }
     function metricRadius(view, value) {
       return 2.2 + (metricIntensity(view, value) * 7.8);
     }
     function formattedMetric(value) {
       return value ? Number(value).toLocaleString() : 'No data';
     }
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], field = '', quoted = false;
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i], next = text[i + 1];
+        if (quoted && char === '"' && next === '"') { field += '"'; i += 1; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === ',' && !quoted) { row.push(field); field = ''; }
+        else if ((char === '\n' || char === '\r') && !quoted) {
+          if (char === '\r' && next === '\n') i += 1;
+          row.push(field);
+          if (row.some(value => value.trim())) rows.push(row);
+          row = []; field = '';
+        } else field += char;
+      }
+      row.push(field);
+      if (row.some(value => value.trim())) rows.push(row);
+      return rows;
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+    function routingAlgorithmClass(name) {
+      if (name === 'A*') return 'astar';
+      if (name === 'Dijkstra') return 'dijkstra';
+      return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'route';
+    }
+    function routingStopLabel(stopId) {
+      const stop = stopById[String(stopId)];
+      return stop ? stop[3] : `Stop ${stopId}`;
+    }
+    function routingPathMatches(firstPath, secondPath) {
+      if (!Array.isArray(firstPath) || !Array.isArray(secondPath) || firstPath.length !== secondPath.length) return false;
+      return firstPath.every((value, index) => value === secondPath[index]);
+    }
+    function routingViewConfig(view = activeView) {
+      return routingSampleViews[view] || null;
+    }
+    function routingScenarioForView(view = activeView) {
+      const config = routingViewConfig(view);
+      if (!config) return null;
+      return routingScenarios.find(scenario => scenario.scenario === config.scenario) || routingScenarios[0] || null;
+    }
+    function routingBaselineScenario() {
+      return routingScenarios.find(scenario => scenario.scenario === 'no_disruption') || routingScenarios[0] || null;
+    }
+    function routingStopsFromPath(path) {
+      return (path || []).map(stopId => stopById[String(stopId)]).filter(Boolean);
+    }
+    function routingLatLngsFromPath(path) {
+      return routingStopsFromPath(path).map(stop => [stop[0], stop[1]]);
+    }
+    function routingRouteMarker(latlng, label, className, tooltipText) {
+      return L.marker(latlng, {
+        interactive: true,
+        keyboard: false,
+        icon: L.divIcon({
+          className: `route-marker ${className}`,
+          html: label,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        })
+      }).bindTooltip(tooltipText, {
+        direction: 'top',
+        offset: [0, -10],
+        sticky: true,
+        opacity: 0.95
+      });
+    }
+    function routingLegendHtml(view = activeView) {
+      const config = routingViewConfig(view);
+      const scenario = routingScenarioForView(view);
+      const baselineScenario = routingBaselineScenario();
+      if (!config) {
+        return '<div class="legend-title">Routing Replay</div><div class="legend-description">No routing sample is available yet.</div>';
+      }
+      const algorithmData = scenario?.algorithms?.[config.algorithm];
+      const baselineData = baselineScenario?.algorithms?.Dijkstra;
+      const sourceName = String(scenario?.source_name || 'Source').trim();
+      const destName = String(scenario?.target_name || 'Destination').trim();
+      const pathLabel = config.algorithm === 'A*' ? 'A*' : 'Dijkstra';
+      const routeClass = escapeHtml(config.routeClass);
+      const routeLabel = escapeHtml(config.routeLabel);
+      const sameRoute = baselineData && algorithmData && routingPathMatches(baselineData.path, algorithmData.path);
+      return `<div class="legend-title">${escapeHtml(config.label)}</div><div class="legend-description">${escapeHtml(scenario?.reason || 'Simulation scenario')} on the actual TTC map. Red is the regular route, while the sample path is overlaid in ${config.algorithm === 'Dijkstra' ? 'orange' : 'blue'}. Small dots mark the stop nodes.</div><div class="routing-panel"><div class="routing-summary"><div class="routing-summary-title">${escapeHtml(sourceName)} → ${escapeHtml(destName)}</div><div class="routing-summary-grid"><span>Scenario</span><strong>${escapeHtml(config.scenario.replace(/_/g, ' '))}</strong><span>Sample</span><strong>${escapeHtml(pathLabel)}</strong><span>Path cost</span><strong>${algorithmData ? `${formattedMetric(algorithmData.path_cost)} cost` : 'No data'}</strong><span>Hops</span><strong>${algorithmData ? `${formattedMetric(algorithmData.hops)} hops` : 'No data'}</strong>${sameRoute ? '<span>Comparison</span><strong>Sample route matches the regular route</strong>' : ''}</div></div><div class="routing-route-key"><div class="routing-route-row"><span class="routing-route-line base"></span>Regular route</div><div class="routing-route-row"><span class="routing-route-line ${routeClass}"></span>${routeLabel}</div></div></div>`;
+    }
+    function renderRoutingSample(fitToBounds = false) {
+      routingLayer.clearLayers();
+      const config = routingViewConfig();
+      const scenario = routingScenarioForView();
+      const baselineScenario = routingBaselineScenario();
+      if (!config || !scenario || !baselineScenario) {
+        updateLegend();
+        return;
+      }
+
+      const baselineData = baselineScenario.algorithms?.Dijkstra;
+      const algorithmData = scenario.algorithms?.[config.algorithm];
+      if (!baselineData || !Array.isArray(baselineData.path) || !baselineData.path.length || !algorithmData || !Array.isArray(algorithmData.path) || !algorithmData.path.length) {
+        updateLegend();
+        return;
+      }
+
+      const boundsPoints = [];
+      const addPath = (path, color, isBase = false) => {
+        const stopsOnPath = routingStopsFromPath(path);
+        const latlngs = stopsOnPath.map(stop => [stop[0], stop[1]]);
+        if (latlngs.length < 2) return;
+        boundsPoints.push(...latlngs);
+        L.polyline(latlngs, {
+          renderer,
+          color,
+          weight: isBase ? 7 : 5,
+          opacity: isBase ? 0.88 : 0.95,
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).bindPopup(`<div class="popup-title">${escapeHtml(isBase ? 'Regular route' : config.label)}</div><div class="popup-meta">Path cost: ${formattedMetric(isBase ? baselineData.path_cost : algorithmData.path_cost)}<br>Hops: ${formattedMetric(isBase ? baselineData.hops : algorithmData.hops)}<br>Edges evaluated: ${formattedMetric(isBase ? baselineData.edges_evaluated : algorithmData.edges_evaluated)}</div>`).addTo(routingLayer);
+        latlngs.forEach(latlng => {
+          L.circleMarker(latlng, {
+            renderer,
+            radius: isBase ? 3 : 3.5,
+            color,
+            fillColor: color,
+            fillOpacity: 0.95,
+            opacity: 0.95,
+            weight: 1
+          }).addTo(routingLayer);
+        });
+      };
+
+      addPath(baselineData.path, routingBaseColor, true);
+      addPath(algorithmData.path, routingColors[config.algorithm] || '#dc2626', false);
+
+      const sourceStop = stopById[String(scenario.source_id)];
+      const destStop = stopById[String(scenario.target_id)];
+      if (sourceStop) {
+        routingRouteMarker([sourceStop[0], sourceStop[1]], 'S', 'source', `Source<br>${escapeHtml(String(scenario.source_name || sourceStop[3] || 'Source stop').trim())}`).addTo(routingLayer);
+        boundsPoints.push([sourceStop[0], sourceStop[1]]);
+      }
+      if (destStop) {
+        routingRouteMarker([destStop[0], destStop[1]], 'T', 'target', `Destination<br>${escapeHtml(String(scenario.target_name || destStop[3] || 'Destination stop').trim())}`).addTo(routingLayer);
+        boundsPoints.push([destStop[0], destStop[1]]);
+      }
+
+      routingLayer.addTo(map);
+      if (fitToBounds && boundsPoints.length) {
+        map.fitBounds(L.latLngBounds(boundsPoints), { padding: [48, 48], maxZoom: 13 });
+      }
+      updateLegend();
+    }
+    function addMetricMarker(stop, view) {
+      const value = metricForStop(stop, view);
+      if (!value) return;
+      const fill = metricColor(view, value);
+      L.circleMarker([stop[0], stop[1]], { renderer, radius: metricRadius(view, value), color: fill, fillColor: fill, fillOpacity: .44, opacity: .76, weight: .65 }).bindPopup(popupHtml(stop)).addTo(metricLayers[view]);
+    }
+    function rebuildMetricLayer(view) {
+      metricLayers[view].clearLayers();
+      delete metricRanges[view];
+      stops.forEach(stop => addMetricMarker(stop, view));
+      if (activeView === view) {
+        metricLayers[view].addTo(map);
+        updateLegend();
+      }
+    }
+    async function loadType2Metrics() {
+      if (Object.keys(type2MetricsByStopId).length) return;
+      const paths = ['dataset/completegtfs/type 2 stop metrics.csv', 'dataset/completegtfs/type_ii_stops_metrics_full.csv'];
+      for (const path of paths) {
+        try {
+          const response = await fetch(path);
+          if (!response.ok) continue;
+          const rows = parseCsv(await response.text());
+          const headers = rows.shift().map(header => header.trim());
+          const stopIdIndex = headers.indexOf('stop_id');
+          const routeCountIndex = headers.indexOf('route_count');
+          const routesIndex = headers.indexOf('routes_serving');
+          if (stopIdIndex < 0 || routeCountIndex < 0) continue;
+          rows.forEach(row => {
+            const stopId = String(row[stopIdIndex] || '').trim();
+            if (!stopId) return;
+            type2MetricsByStopId[stopId] = {
+              routeCount: Number(row[routeCountIndex]) || 0,
+              routes: row[routesIndex] || ''
+            };
+          });
+          return;
+        } catch (error) {}
+      }
+      console.warn('Type II stop metrics CSV could not be loaded.');
+    }
+    function csvObjects(rows) {
+      const headers = rows.shift().map(header => header.trim());
+      return rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
+    }
+    function numberField(record, field) {
+      return Number(String(record[field] || '').replace(/,/g, '')) || 0;
+    }
+    function hubPointForName(name) {
+      const key = stationKey(name);
+      if (majorHubsByName[key]) return majorHubsByName[key];
+      const matchingStops = stops.filter(stop => stationKey(stop[3]) === key || stationKey(stop[3]).includes(key));
+      if (!matchingStops.length) return null;
+      return {
+        stop_name: name,
+        stop_lat: matchingStops.reduce((sum, stop) => sum + stop[0], 0) / matchingStops.length,
+        stop_lon: matchingStops.reduce((sum, stop) => sum + stop[1], 0) / matchingStops.length
+      };
+    }
+    function hubPopupHtml(record, view) {
+      if (view === 'majorHubs') {
+        return `<div class="popup-title">${record.stop_name || 'Grouped Station Hub'}</div><div class="popup-meta">Grouped stop/platform records: ${formattedMetric(numberField(record, 'platform_stop_count'))}<br>Network importance: ${numberField(record, 'Betweenness').toFixed(3)}<br>Connection closeness: ${numberField(record, 'Closeness').toFixed(3)}<br>Direct connection score: ${numberField(record, 'Degree').toFixed(4)}</div>`;
+      }
+      return `<div class="popup-title">${record.hub_name || 'Delay Hotspot'}</div><div class="popup-meta">Total historical delay minutes: ${formattedMetric(numberField(record, 'total_delay_min_all_sources'))}<br>Bus delay minutes: ${formattedMetric(numberField(record, 'bus_delay_min_serving_routes'))}<br>Streetcar delay minutes: ${formattedMetric(numberField(record, 'streetcar_delay_min_serving_routes'))}<br>Subway delay minutes: ${formattedMetric(numberField(record, 'subway_delay_min'))}<br>Grouped stop/platform records: ${formattedMetric(numberField(record, 'platform_stop_count'))}<br>Routes connected to this hub: ${record.routes_serving_filtered_graph || 'No data'}</div>`;
+    }
+    function addHubRecordMarker(record, view, records, valueForRecord) {
+      const point = view === 'majorHubs' ? record : hubPointForName(record.hub_name);
+      if (!point) return;
+      const value = valueForRecord(record);
+      if (!value) return;
+      const t = recordIntensity(view, value, records, valueForRecord);
+      const fill = colorFromIntensity(t);
+      const radius = 7 + (t * 13);
+      L.circleMarker([Number(point.stop_lat), Number(point.stop_lon)], {
+        renderer,
+        radius,
+        color: '#ffffff',
+        fillColor: fill,
+        fillOpacity: .76,
+        opacity: .95,
+        weight: 1.6
+      }).bindPopup(hubPopupHtml(record, view)).addTo(metricLayers[view]);
+    }
+    function rebuildHubLayer(view, records, valueForRecord) {
+      metricLayers[view].clearLayers();
+      delete recordRanges[view];
+      records.forEach(record => addHubRecordMarker(record, view, records, valueForRecord));
+      if (activeView === view) {
+        metricLayers[view].addTo(map);
+        updateLegend();
+      }
+    }
+    async function loadHubCsvLayers() {
+      try {
+        const majorResponse = await fetch('dataset/completegtfs/type_ii_major_hubs_collapsed.csv');
+        if (majorResponse.ok) {
+          const majorRecords = csvObjects(parseCsv(await majorResponse.text()));
+          majorRecords.forEach(record => { majorHubsByName[stationKey(record.stop_name)] = record; });
+          rebuildHubLayer('majorHubs', majorRecords, record => numberField(record, 'platform_stop_count'));
+        }
+      } catch (error) {
+        console.warn('Major hubs CSV could not be loaded.');
+      }
+      try {
+        const bottleneckResponse = await fetch('dataset/completegtfs/type_ii_hub_bottleneck_combined.csv');
+        if (bottleneckResponse.ok) {
+          const bottleneckRecords = csvObjects(parseCsv(await bottleneckResponse.text()));
+          bottleneckRecords.forEach(record => { bottlenecksByName[stationKey(record.hub_name)] = record; });
+          rebuildHubLayer('bottlenecks', bottleneckRecords, record => numberField(record, 'total_delay_min_all_sources'));
+        }
+      } catch (error) {
+        console.warn('Bottleneck CSV could not be loaded.');
+      }
+    }
     function popupHtml(stop) {
       const route = stop[5] ? `<br>Route: ${stop[5]}` : '';
       const hub = metrics.hubByStopId?.[stop[4]];
+      const type2 = type2MetricsByStopId[stop[4]];
       const disruption = disruptionForStop(stop);
       const interruption = interruptionForStop(stop);
-      return `<div class="popup-title">${stop[3] || 'TTC Stop'}</div><div class="popup-meta">Stop ID: ${stop[4]}<br>Mode: ${stop[2]}${route}<br>Service visits: ${formattedMetric(metricForStop(stop, 'service'))}<br>Hub routes: ${formattedMetric(hub?.routes)}<br>Hub modes: ${formattedMetric(hub?.modes)}<br>Productivity: ${formattedMetric(metricForStop(stop, 'productivity'))}<br>Disruption incidents: ${formattedMetric(disruption?.incidents)}<br>Disruption delay minutes: ${formattedMetric(disruption?.delayMinutes)}<br>Interrupted-route records: ${formattedMetric(interruption?.incidents)}</div>`;
+      return `<div class="popup-title">${stop[3] || 'TTC Stop'}</div><div class="popup-meta">Stop ID: ${stop[4]}<br>Stop type: ${stop[2]}${route}<br>Scheduled arrivals here: ${formattedMetric(metricForStop(stop, 'service'))}<br>Number of routes serving this stop: ${formattedMetric(type2?.routeCount)}<br>Routes serving this stop: ${type2?.routes || 'No data'}<br>Routes in this hub area: ${formattedMetric(hub?.routes)}<br>Transit types in this hub area: ${formattedMetric(hub?.modes)}<br>Route busyness score: ${formattedMetric(metricForStop(stop, 'productivity'))}<br>Historical disruption records: ${formattedMetric(disruption?.incidents)}<br>Historical delay minutes: ${formattedMetric(disruption?.delayMinutes)}<br>Historical interruption records: ${formattedMetric(interruption?.incidents)}</div>`;
     }
     function addStopsChunked(index = 0) {
       const end = Math.min(index + 700, stops.length);
@@ -141,30 +521,58 @@
         bounds.push(latlng);
         L.circleMarker(latlng, { renderer, radius: radiusByMode[mode] || 2.8, color: colors[mode] || colors.Other, fillColor: colors[mode] || colors.Other, fillOpacity: opacityByMode[mode] || .74, opacity: .72, weight: weightByMode[mode] || .8 }).bindPopup(popupHtml(stop)).addTo(modeLayers[mode] || modeLayers.Other);
         Object.keys(metricLayers).forEach(view => {
-          const value = metricForStop(stop, view);
-          if (!value) return;
-          const fill = metricColor(view, value);
-          L.circleMarker(latlng, { renderer, radius: metricRadius(view, value), color: fill, fillColor: fill, fillOpacity: .44, opacity: .76, weight: .65 }).bindPopup(popupHtml(stop)).addTo(metricLayers[view]);
+          addMetricMarker(stop, view);
         });
       }
       if (end < stops.length) requestAnimationFrame(() => addStopsChunked(end));
-      else if (bounds.length) map.fitBounds(bounds, { padding: [28, 28] });
+      else {
+        stopsLoaded = true;
+        if (bounds.length && !(activeView in routingSampleViews) && !stopsBoundsFit) {
+          map.fitBounds(bounds, { padding: [28, 28] });
+          stopsBoundsFit = true;
+        }
+      }
     }
     addStopsChunked();
+    loadType2Metrics();
+    loadHubCsvLayers();
     L.control.layers({ 'ArcGIS Topographic': topo, 'Light Gray Canvas': lightGray, OpenStreetMap: osm }, {}, { collapsed: true }).addTo(map);
     function setView(view) {
       activeView = view;
       Object.values(modeLayers).forEach(layer => map.removeLayer(layer));
       Object.values(metricLayers).forEach(layer => map.removeLayer(layer));
-      if (view in metricLayers) metricLayers[view].addTo(map); else Object.values(modeLayers).forEach(layer => layer.addTo(map));
+      map.removeLayer(routingLayer);
+      map.getContainer().style.background = '#e8e4d8';
+      if (view in routingSampleViews) {
+        renderRoutingSample(true);
+      } else {
+        routingLayer.clearLayers();
+        if (view in metricLayers) metricLayers[view].addTo(map); else Object.values(modeLayers).forEach(layer => layer.addTo(map));
+      }
+      if (view === 'mode' && stopsLoaded && bounds.length && !stopsBoundsFit) {
+        map.fitBounds(bounds, { padding: [28, 28] });
+        stopsBoundsFit = true;
+      }
       document.querySelectorAll('.view-tab').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-      updateLegend();
+      if (!(view in routingSampleViews)) updateLegend();
     }
     const tabs = L.control({ position: 'topright' });
     tabs.onAdd = function () {
       const div = L.DomUtil.create('div', 'view-tabs');
-      div.innerHTML = `<button class="view-tab active" type="button" data-view="mode">Mode</button><button class="view-tab" type="button" data-view="service">Service Intensity</button><button class="view-tab" type="button" data-view="hubs">Transit Hubs</button><button class="view-tab" type="button" data-view="productivity">Productivity</button><button class="view-tab" type="button" data-view="disruptions">Network Disruptions</button><button class="view-tab" type="button" data-view="interruptions">Interrupted Routes</button>`;
-      div.querySelectorAll('.view-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+      viewTabGroups.forEach(group => {
+        const section = L.DomUtil.create('div', 'view-tab-section', div);
+        const title = L.DomUtil.create('div', 'view-tab-section-title', section);
+        title.textContent = group.title;
+        const row = L.DomUtil.create('div', 'view-tab-row', section);
+        group.views.forEach(item => {
+          const button = L.DomUtil.create('button', 'view-tab', row);
+          button.type = 'button';
+          button.dataset.view = item.view;
+          button.textContent = item.label;
+          if (item.view === activeView) button.classList.add('active');
+          button.addEventListener('click', () => setView(item.view));
+        });
+      });
       L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div); return div;
     };
     tabs.addTo(map);
@@ -172,14 +580,24 @@
     let legendDiv;
     function updateLegend() {
       if (!legendDiv) return;
-      if (activeView in metricConfig) {
-        const config = metricConfig[activeView];
-        legendDiv.innerHTML = `<div class="legend-title">${config.title}</div><div class="legend-row"><span>${config.low}</span><span class="legend-scale" style="background:${config.gradient}"></span><span>${config.high}</span></div><div class="legend-note">Color and size = ${config.note}</div>`;
+      if (activeView in routingSampleViews) {
+        legendDiv.innerHTML = routingLegendHtml(activeView);
         return;
       }
-      legendDiv.innerHTML = `<div class="legend-title">Legend</div>${['Bus','Streetcar','Subway','Other'].map(mode => `<div class="legend-row"><span class="dot" style="background:${colors[mode]}"></span><span>${mode}</span></div>`).join('')}`;
+      if (activeView in metricConfig) {
+        const config = metricConfig[activeView];
+        legendDiv.innerHTML = `<div class="legend-title">${config.title}</div><div class="legend-row"><span>${config.low}</span><span class="legend-scale" style="background:${config.gradient}"></span><span>${config.high}</span></div><div class="legend-note">Color and size = ${config.note}</div><div class="legend-description">${config.description}</div>`;
+        return;
+      }
+      legendDiv.innerHTML = `<div class="legend-title">Legend</div>${['Bus','Streetcar','Subway','Other'].map(mode => `<div class="legend-row"><span class="dot" style="background:${colors[mode]}"></span><span>${mode}</span></div>`).join('')}<div class="legend-description">${modeDescription}</div>`;
     }
-    legend.onAdd = function () { legendDiv = L.DomUtil.create('div', 'legend'); updateLegend(); L.DomEvent.disableClickPropagation(legendDiv); L.DomEvent.disableScrollPropagation(legendDiv); return legendDiv; };
+    legend.onAdd = function () {
+      legendDiv = L.DomUtil.create('div', 'legend');
+      updateLegend();
+      L.DomEvent.disableClickPropagation(legendDiv);
+      L.DomEvent.disableScrollPropagation(legendDiv);
+      return legendDiv;
+    };
     legend.addTo(map);
   </script>
 </body>
