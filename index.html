@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="ttc_metric_layers.js"></script>
-  <script src="type2_stop_metrics.js"></script>
   <script src="outputs/routing_replay_data.js"></script>
   <script src="outputs/pagerank_data.js"></script>
   <style>
@@ -25,6 +24,10 @@
     .leaflet-popup-content { margin: 10px 12px; font-size: 13px; max-width: min(280px, calc(100vw - 64px)); overflow-wrap: anywhere; }
     .popup-title { font-weight: 700; margin-bottom: 4px; color: #333; }
     .popup-meta { color: #777; line-height: 1.35; }
+    .popup-metrics { display: grid; gap: 3px; margin-top: 7px; }
+    .popup-metric-row { display: flex; justify-content: space-between; gap: 10px; line-height: 1.25; font-size: 12px; }
+    .popup-metric-label { color: #666; font-weight: 700; flex: 1 1 auto; }
+    .popup-metric-value { color: #333; font-variant-numeric: tabular-nums; text-align: right; flex: 0 0 auto; }
     .view-tabs { background: rgba(255,255,255,.95); border: 1px solid rgba(30,45,60,.08); border-radius: 8px; box-shadow: 0 8px 26px rgba(25,35,45,.16); display: grid; gap: 7px; width: min(430px, calc(100vw - 18px)); max-width: calc(100vw - 18px); overflow: hidden; padding: 6px; backdrop-filter: blur(8px); }
     .view-tabs-desktop { display: grid; gap: 7px; }
     .view-tabs-mobile { display: none; }
@@ -119,27 +122,23 @@
     const metricLayers = {
       service: L.layerGroup(),
       majorHubs: L.layerGroup(),
-      bottlenecks: L.layerGroup(),
-      productivity: L.layerGroup(),
       disruptions: L.layerGroup(),
       interruptions: L.layerGroup(),
       pagerankStops: L.layerGroup(),
       pagerankHubs: L.layerGroup()
     };
     const metricConfig = {
-      service: { title: 'How Often Stops Are Served', low: 'Less service', high: 'More service', note: 'scheduled arrivals at each stop', description: 'Use this to spot busy service areas. Bigger, warmer circles mean TTC vehicles are scheduled to stop there more often.', unit: 'scheduled arrivals', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      majorHubs: { title: 'Grouped Station Hubs', low: 'Smaller hub', high: 'Larger hub', note: 'number of stop/platform records grouped into one station area', description: 'Each circle is a station or hub area, not one single bus stop sign. Bigger circles mean many related stop/platform records were grouped together there.', unit: 'grouped stop records', gradient: 'linear-gradient(90deg, #14b8a6, #facc15, #ef4444)' },
-      bottlenecks: { title: 'Delay Hotspots', low: 'Lower delay', high: 'Higher delay', note: 'historical delay minutes linked to routes serving the hub', description: 'These are important hub areas where delays affected many connected routes. Bigger, warmer circles point to places with more historical delay pressure.', unit: 'delay minutes', gradient: 'linear-gradient(90deg, #6366f1, #f59e0b, #dc2626)' },
-      productivity: { title: 'Productivity', low: 'Less busy', high: 'More busy', note: '2024 riders per vehicle hour on the route', description: 'Shows stops on routes that carry more riders for each hour a TTC vehicle is running. Higher values mean the route is being used more heavily.', unit: 'riders per vehicle hour', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      disruptions: { title: 'Delay Concentration', low: 'Less delay', high: 'More delay', note: 'historical delay minutes by route or subway station', description: 'Shows where past delay records were concentrated. This is based on historical TTC disruption data, not live service.', unit: 'delay minutes', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      interruptions: { title: 'Route Interruptions', low: 'Fewer records', high: 'More records', note: 'historical diversion and off-route records', description: 'Shows routes with more records of diversions or vehicles going off route. This helps identify routes that had more service interruptions in the data.', unit: 'interruption records', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      pagerankStops: { title: 'Stop PageRank', low: 'Lower rank', high: 'Higher rank', note: 'PageRank score across the stop network', description: 'Shows individual TTC stop records ranked by PageRank. Stops linked to other well-connected stops appear larger and warmer.', unit: 'PageRank score', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
-      pagerankHubs: { title: 'Hub PageRank', low: 'Lower hub score', high: 'Higher hub score', note: 'aggregated PageRank within each historical station area', description: 'Sums PageRank across the stop records that make up each historical station hub so the interchange is treated as one location.', unit: 'PageRank score', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
+      service: { title: 'Service Intensity', low: 'Low', high: 'High', note: 'relative service band across the stop network', description: 'Stops are grouped into low, medium, or high service-intensity bands.', unit: 'service band', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      majorHubs: { title: 'Transit Hubs', low: 'Low', high: 'High', note: 'platform stop count from the hub CSV', description: 'Click a hub to see its numeric CSV fields: platform stop count, graph degree, degree, closeness, betweenness, and route count.', unit: 'hub band', gradient: 'linear-gradient(90deg, #14b8a6, #facc15, #ef4444)' },
+      disruptions: { title: 'Network Disruptions', low: 'Low', high: 'High', note: 'relative disruption band across stops and stations', description: 'Stops and stations are grouped into low, medium, or high disruption bands.', unit: 'disruption band', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      interruptions: { title: 'Interrupted Routes', low: 'Low', high: 'High', note: 'relative interruption band across routes', description: 'Routes are grouped into low, medium, or high interruption bands.', unit: 'interruption band', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      pagerankStops: { title: 'Stop Hub Score', low: 'Low', high: 'High', note: 'relative hub-score band across the stop network', description: 'Stops are grouped into low, medium, or high hub-score bands.', unit: 'hub score band', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' },
+      pagerankHubs: { title: 'Station Hub Score', low: 'Low', high: 'High', note: 'relative hub-score band within each historical station area', description: 'Stations are grouped into low, medium, or high hub-score bands.', unit: 'hub score band', gradient: 'linear-gradient(90deg, #3b82f6, #facc15, #ef4444)' }
     };
     const modeDescription = 'Shows every mapped TTC stop. Color tells you whether the stop is mainly bus, streetcar, subway, or another stop type.';
     const metricRanges = {};
     const recordRanges = {};
-    const type2MetricsByStopId = Object.assign({}, window.TTC_TYPE2_STOP_METRICS || {});
+    const type2MetricsByStopId = {};
     const pagerankData = window.TTC_PAGERANK_DATA || {};
     const pagerankMetricsByStopId = Object.assign({}, pagerankData.stopMetricsByStopId || {});
     const pagerankStationTop10 = Array.isArray(pagerankData.stationTop10) ? pagerankData.stationTop10 : [];
@@ -196,9 +195,7 @@
         title: 'Type 2',
         views: [
           { view: 'service', label: 'Service Intensity' },
-          { view: 'majorHubs', label: 'Transit Hubs' },
-          { view: 'bottlenecks', label: 'Delay Hotspots' },
-          { view: 'productivity', label: 'Productivity' }
+          { view: 'majorHubs', label: 'Transit Hubs' }
         ]
       }
     ];
@@ -209,7 +206,6 @@
     }
     const routingLayer = L.featureGroup();
     const majorHubsByName = {};
-    const bottlenecksByName = {};
     let activeView = 'mode';
     let stopsLoaded = false;
     let stopsBoundsFit = false;
@@ -235,8 +231,7 @@
     }
     function metricForStop(stop, view) {
       const route = routeKey(stop[5]);
-      if (view === 'service') return Number(metrics.serviceByStopId?.[stop[4]]) || 0;
-      if (view === 'productivity') return Number(metrics.productivityByRoute?.[route]) || 0;
+      if (view === 'service') return Number(type2MetricsByStopId[stop[4]]?.maxPax || type2MetricsByStopId[stop[4]]?.routeCount) || 0;
       if (view === 'pagerankStops') return Number(pagerankMetricsByStopId[stop[4]]?.pagerank) || 0;
       if (view === 'disruptions') {
         const stationDelay = metrics.delayByStationName?.[stationKey(stop[3])]?.delayMinutes;
@@ -294,9 +289,38 @@
     function formattedMetric(value) {
       return value ? Number(value).toLocaleString() : 'No data';
     }
-    function formatPageRankValue(value) {
-      const num = Number(value);
-      return Number.isFinite(num) && num > 0 ? num.toFixed(6) : 'No data';
+    function scoreBandLabel(intensity) {
+      if (!Number.isFinite(intensity)) return 'Low';
+      if (intensity < 0.34) return 'Low';
+      if (intensity < 0.67) return 'Medium';
+      return 'High';
+    }
+    function pagerankBandLabel(view, value, records, valueForRecord) {
+      const intensity = view === 'pagerankHubs'
+        ? recordIntensity(view, value, records, valueForRecord)
+        : metricIntensity(view, value);
+      return scoreBandLabel(intensity);
+    }
+    function qualitativePopupHtml(title, labelName, label) {
+      return `<div class="popup-title">${escapeHtml(title || 'TTC Stop')}</div><div class="popup-meta">${escapeHtml(labelName)}: ${escapeHtml(label || 'Low')}</div>`;
+    }
+    function pagerankPopupHtml(title, label) {
+      return qualitativePopupHtml(title, 'Hub Score', label);
+    }
+    const majorHubMetricFields = [
+      ['platform_stop_count', 'Platform stop count'],
+      ['graph_degree', 'Graph degree'],
+      ['Degree', 'Degree'],
+      ['Closeness', 'Closeness'],
+      ['Betweenness', 'Betweenness'],
+      ['route_count', 'Route count']
+    ];
+    function majorHubMetricsHtml(record) {
+      const rows = majorHubMetricFields.map(([field, label]) => {
+        const value = String(record?.[field] ?? '').trim();
+        return `<div class="popup-metric-row"><span class="popup-metric-label">${escapeHtml(label)}</span><span class="popup-metric-value">${escapeHtml(value || 'No data')}</span></div>`;
+      }).join('');
+      return `<div class="popup-metrics">${rows}</div>`;
     }
     function parseCsv(text) {
       const rows = [];
@@ -452,7 +476,8 @@
       const value = metricForStop(stop, view);
       if (!value) return;
       const fill = metricColor(view, value);
-      L.circleMarker([stop[0], stop[1]], { renderer, radius: metricRadius(view, value), color: fill, fillColor: fill, fillOpacity: .44, opacity: .76, weight: .65 }).bindPopup(popupHtml(stop)).addTo(metricLayers[view]);
+      const popup = view === 'pagerankStops' ? pagerankPopupHtml(stop[3] || 'TTC Stop', pagerankBandLabel(view, value)) : popupHtml(stop, view);
+      L.circleMarker([stop[0], stop[1]], { renderer, radius: metricRadius(view, value), color: fill, fillColor: fill, fillOpacity: .44, opacity: .76, weight: .65 }).bindPopup(popup).addTo(metricLayers[view]);
     }
     function rebuildMetricLayer(view) {
       metricLayers[view].clearLayers();
@@ -465,28 +490,29 @@
     }
     async function loadType2Metrics() {
       if (Object.keys(type2MetricsByStopId).length) return;
-      const paths = ['dataset/completegtfs/type 2 stop metrics.csv', 'dataset/completegtfs/type_ii_stops_metrics_full.csv'];
-      for (const path of paths) {
-        try {
-          const response = await fetch(path);
-          if (!response.ok) continue;
+      try {
+        const response = await fetch('dataset/completegtfs/type_ii_stops_metrics_full_map.csv');
+        if (response.ok) {
           const rows = parseCsv(await response.text());
           const headers = rows.shift().map(header => header.trim());
           const stopIdIndex = headers.indexOf('stop_id');
           const routeCountIndex = headers.indexOf('route_count');
           const routesIndex = headers.indexOf('routes_serving');
-          if (stopIdIndex < 0 || routeCountIndex < 0) continue;
-          rows.forEach(row => {
-            const stopId = String(row[stopIdIndex] || '').trim();
-            if (!stopId) return;
-            type2MetricsByStopId[stopId] = {
-              routeCount: Number(row[routeCountIndex]) || 0,
-              routes: row[routesIndex] || ''
-            };
-          });
-          return;
-        } catch (error) {}
-      }
+          const maxPaxIndex = headers.indexOf('max_pax_per_vehicle_hour_2024_serving_route');
+          if (stopIdIndex >= 0) {
+            rows.forEach(row => {
+              const stopId = String(row[stopIdIndex] || '').trim();
+              if (!stopId) return;
+              type2MetricsByStopId[stopId] = {
+                routeCount: Number(row[routeCountIndex]) || 0,
+                routes: row[routesIndex] || '',
+                maxPax: Number(row[maxPaxIndex]) || 0
+              };
+            });
+            return;
+          }
+        }
+      } catch (error) {}
       console.warn('Type II stop metrics CSV could not be loaded.');
     }
     function csvObjects(rows) {
@@ -496,9 +522,30 @@
     function numberField(record, field) {
       return Number(String(record[field] || '').replace(/,/g, '')) || 0;
     }
+    function hubPointFromMemberStops(memberStopIds) {
+      const ids = String(memberStopIds || '').split(',').map(id => String(id).trim()).filter(Boolean);
+      const members = ids.map(id => stopById[id]).filter(Boolean);
+      if (!members.length) return null;
+      return {
+        stop_lat: members.reduce((sum, stop) => sum + stop[0], 0) / members.length,
+        stop_lon: members.reduce((sum, stop) => sum + stop[1], 0) / members.length
+      };
+    }
+    function hubPointFromRecord(record) {
+      if (!record) return null;
+      const lat = Number(record.stop_lat);
+      const lon = Number(record.stop_lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        return { stop_lat: lat, stop_lon: lon };
+      }
+      return hubPointFromMemberStops(record.member_stop_ids);
+    }
     function hubPointForName(name) {
       const key = stationKey(name);
-      if (majorHubsByName[key]) return majorHubsByName[key];
+      if (majorHubsByName[key]) {
+        const point = hubPointFromRecord(majorHubsByName[key]);
+        if (point) return point;
+      }
       const matchingStops = stops.filter(stop => stationKey(stop[3]) === key || stationKey(stop[3]).includes(key));
       if (!matchingStops.length) return null;
       return {
@@ -507,17 +554,24 @@
         stop_lon: matchingStops.reduce((sum, stop) => sum + stop[1], 0) / matchingStops.length
       };
     }
-    function hubPopupHtml(record, view) {
+    function hubPopupHtml(record, view, records, valueForRecord) {
       if (view === 'majorHubs') {
-        return `<div class="popup-title">${record.stop_name || 'Grouped Station Hub'}</div><div class="popup-meta">Grouped stop/platform records: ${formattedMetric(numberField(record, 'platform_stop_count'))}<br>Network importance: ${numberField(record, 'Betweenness').toFixed(3)}<br>Connection closeness: ${numberField(record, 'Closeness').toFixed(3)}<br>Direct connection score: ${numberField(record, 'Degree').toFixed(4)}</div>`;
+        const title = record.hub_display_name || record.station_cluster_name || record.stop_name || 'Grouped Station Hub';
+        return `<div class="popup-title">${escapeHtml(title)}</div>${majorHubMetricsHtml(record)}`;
       }
       if (view === 'pagerankHubs') {
-        return `<div class="popup-title">${record.station_name || 'Historical Transit Hub'}</div><div class="popup-meta">Aggregated PageRank: ${formatPageRankValue(numberField(record, 'pagerank_score'))}<br>Matched nodes: ${formattedMetric(numberField(record, 'matched_nodes'))}<br>Grouped stop/platform records: ${formattedMetric(numberField(record, 'platform_stop_count'))}<br>Degree centrality: ${numberField(record, 'degree_centrality').toFixed(4)}<br>Closeness: ${numberField(record, 'closeness').toFixed(4)}<br>Betweenness: ${numberField(record, 'betweenness').toFixed(4)}</div>`;
+        const title = record.station_name || record.hub_display_name || record.stop_name || 'Historical Transit Hub';
+        const label = pagerankBandLabel(view, numberField(record, 'pagerank_score'), records || [], valueForRecord || (item => numberField(item, 'pagerank_score')));
+        return qualitativePopupHtml(title, 'Hub Score', label);
       }
-      return `<div class="popup-title">${record.hub_name || 'Delay Hotspot'}</div><div class="popup-meta">Total historical delay minutes: ${formattedMetric(numberField(record, 'total_delay_min_all_sources'))}<br>Bus delay minutes: ${formattedMetric(numberField(record, 'bus_delay_min_serving_routes'))}<br>Streetcar delay minutes: ${formattedMetric(numberField(record, 'streetcar_delay_min_serving_routes'))}<br>Subway delay minutes: ${formattedMetric(numberField(record, 'subway_delay_min'))}<br>Grouped stop/platform records: ${formattedMetric(numberField(record, 'platform_stop_count'))}<br>Routes connected to this hub: ${record.routes_serving_filtered_graph || 'No data'}</div>`;
+      const title = record.hub_name || record.stop_name || 'Transit Hub';
+      const label = scoreBandLabel(recordIntensity(view, valueForRecord ? valueForRecord(record) : numberField(record, 'platform_stop_count'), records || [], valueForRecord || (item => numberField(item, 'platform_stop_count'))));
+      return qualitativePopupHtml(title, 'Hub Score', label);
     }
     function addHubRecordMarker(record, view, records, valueForRecord) {
-      const point = view === 'majorHubs' ? record : hubPointForName(record.hub_name || record.station_name || record.stop_name);
+      const point = view === 'majorHubs'
+        ? (hubPointFromRecord(record) || hubPointForName(record.hub_display_name || record.station_cluster_name || record.stop_name))
+        : hubPointForName(record.hub_name || record.station_name || record.stop_name);
       if (!point) return;
       const value = valueForRecord(record);
       if (!value) return;
@@ -532,7 +586,7 @@
         fillOpacity: .76,
         opacity: .95,
         weight: 1.6
-      }).bindPopup(hubPopupHtml(record, view)).addTo(metricLayers[view]);
+      }).bindPopup(hubPopupHtml(record, view, records, valueForRecord)).addTo(metricLayers[view]);
     }
     function rebuildHubLayer(view, records, valueForRecord) {
       metricLayers[view].clearLayers();
@@ -545,10 +599,15 @@
     }
     async function loadHubCsvLayers() {
       try {
-        const majorResponse = await fetch('dataset/completegtfs/type_ii_major_hubs_collapsed.csv');
+        const majorResponse = await fetch('dataset/completegtfs/type_ii_major_hubs_collapsed_map.csv');
         if (majorResponse.ok) {
           const majorRecords = csvObjects(parseCsv(await majorResponse.text()));
-          majorRecords.forEach(record => { majorHubsByName[stationKey(record.stop_name)] = record; });
+          majorRecords.forEach(record => {
+            [record.stop_name, record.hub_display_name, record.station_cluster_name].forEach(name => {
+              const key = stationKey(name);
+              if (key) majorHubsByName[key] = record;
+            });
+          });
           rebuildHubLayer('majorHubs', majorRecords, record => numberField(record, 'platform_stop_count'));
         }
       } catch (error) {
@@ -557,31 +616,33 @@
       if (pagerankStationTop10.length) {
         rebuildHubLayer('pagerankHubs', pagerankStationTop10, record => numberField(record, 'pagerank_score'));
       }
-      try {
-        const bottleneckResponse = await fetch('dataset/completegtfs/type_ii_hub_bottleneck_combined.csv');
-        if (bottleneckResponse.ok) {
-          const bottleneckRecords = csvObjects(parseCsv(await bottleneckResponse.text()));
-          bottleneckRecords.forEach(record => { bottlenecksByName[stationKey(record.hub_name)] = record; });
-          rebuildHubLayer('bottlenecks', bottleneckRecords, record => numberField(record, 'total_delay_min_all_sources'));
-        }
-      } catch (error) {
-        console.warn('Bottleneck CSV could not be loaded.');
-      }
     }
-    function popupHtml(stop) {
+    function popupHtml(stop, view = 'mode') {
       const route = stop[5] ? `<br>Route: ${stop[5]}` : '';
       const hub = metrics.hubByStopId?.[stop[4]];
       const type2 = type2MetricsByStopId[stop[4]];
       const disruption = disruptionForStop(stop);
       const interruption = interruptionForStop(stop);
-      return `<div class="popup-title">${stop[3] || 'TTC Stop'}</div><div class="popup-meta">Stop ID: ${stop[4]}<br>Stop type: ${stop[2]}${route}<br>Scheduled arrivals here: ${formattedMetric(metricForStop(stop, 'service'))}<br>Number of routes serving this stop: ${formattedMetric(type2?.routeCount)}<br>Routes serving this stop: ${type2?.routes || 'No data'}<br>PageRank score: ${formatPageRankValue(metricForStop(stop, 'pagerankStops'))}<br>Routes in this hub area: ${formattedMetric(hub?.routes)}<br>Transit types in this hub area: ${formattedMetric(hub?.modes)}<br>Route busyness score: ${formattedMetric(metricForStop(stop, 'productivity'))}<br>Historical disruption records: ${formattedMetric(disruption?.incidents)}<br>Historical delay minutes: ${formattedMetric(disruption?.delayMinutes)}<br>Historical interruption records: ${formattedMetric(interruption?.incidents)}</div>`;
+      if (view === 'pagerankStops') {
+        return pagerankPopupHtml(stop[3] || 'TTC Stop', pagerankBandLabel(view, metricForStop(stop, view)));
+      }
+      if (view === 'service') {
+        return qualitativePopupHtml(stop[3] || 'TTC Stop', 'Service intensity', scoreBandLabel(metricIntensity(view, metricForStop(stop, view))));
+      }
+      if (view === 'disruptions') {
+        return qualitativePopupHtml(stop[3] || 'TTC Stop', 'Delay', scoreBandLabel(metricIntensity(view, metricForStop(stop, view))));
+      }
+      if (view === 'interruptions') {
+        return qualitativePopupHtml(stop[3] || 'TTC Stop', 'Interrupted routes', scoreBandLabel(metricIntensity(view, metricForStop(stop, view))));
+      }
+      return `<div class="popup-title">${escapeHtml(stop[3] || 'TTC Stop')}</div><div class="popup-meta">Mode: ${escapeHtml(stop[2] || 'Unknown')}</div>`;
     }
     function addStopsChunked(index = 0) {
       const end = Math.min(index + 700, stops.length);
       for (let i = index; i < end; i += 1) {
         const stop = stops[i], mode = stop[2], latlng = [stop[0], stop[1]];
         bounds.push(latlng);
-        L.circleMarker(latlng, { renderer, radius: radiusByMode[mode] || 2.8, color: colors[mode] || colors.Other, fillColor: colors[mode] || colors.Other, fillOpacity: opacityByMode[mode] || .74, opacity: .72, weight: weightByMode[mode] || .8 }).bindPopup(popupHtml(stop)).addTo(modeLayers[mode] || modeLayers.Other);
+        L.circleMarker(latlng, { renderer, radius: radiusByMode[mode] || 2.8, color: colors[mode] || colors.Other, fillColor: colors[mode] || colors.Other, fillOpacity: opacityByMode[mode] || .74, opacity: .72, weight: weightByMode[mode] || .8 }).bindPopup(popupHtml(stop, 'mode')).addTo(modeLayers[mode] || modeLayers.Other);
         Object.keys(metricLayers).forEach(view => {
           addMetricMarker(stop, view);
         });
@@ -598,8 +659,9 @@
     if (pagerankStationTop10.length) {
       rebuildHubLayer('pagerankHubs', pagerankStationTop10, record => numberField(record, 'pagerank_score'));
     }
-    addStopsChunked();
-    loadType2Metrics();
+    loadType2Metrics().then(() => {
+      addStopsChunked();
+    });
     loadHubCsvLayers();
     L.control.layers({ 'ArcGIS Topographic': topo, 'Light Gray Canvas': lightGray, OpenStreetMap: osm }, {}, { collapsed: true }).addTo(map);
     function setView(view) {
