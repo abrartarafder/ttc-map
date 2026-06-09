@@ -28,6 +28,23 @@
     .popup-metric-row { display: flex; justify-content: space-between; gap: 10px; line-height: 1.25; font-size: 12px; }
     .popup-metric-label { color: #666; font-weight: 700; flex: 1 1 auto; }
     .popup-metric-value { color: #333; font-variant-numeric: tabular-nums; text-align: right; flex: 0 0 auto; }
+    .gallery-view { position: fixed; inset: 0; z-index: 450; display: none; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 82px 22px 22px; background: rgba(239, 238, 231, .97); backdrop-filter: blur(5px); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+    .gallery-view.active { display: block; }
+    .gallery-shell { max-width: 1600px; margin: 0 auto; display: grid; gap: 18px; }
+    .gallery-header { display: grid; gap: 7px; padding: 18px 18px 0; }
+    .gallery-kicker { color: #7c8794; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .gallery-title { color: #263238; font-size: clamp(22px, 3vw, 34px); font-weight: 800; line-height: 1.1; }
+    .gallery-description { color: #5d6873; font-size: 14px; line-height: 1.45; max-width: 80ch; }
+    .gallery-nav { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+    .gallery-nav button { background: rgba(38,50,56,.08); border: 1px solid rgba(38,50,56,.10); border-radius: 999px; color: #50606b; cursor: pointer; font: 700 12px Arial, Helvetica, sans-serif; min-height: 32px; padding: 0 12px; }
+    .gallery-nav button.active { background: #263238; border-color: #263238; color: #fff; }
+    .gallery-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); align-items: start; padding: 0 18px 18px; }
+    .gallery-card { background: rgba(255,255,255,.95); border: 1px solid rgba(30,45,60,.08); border-radius: 14px; box-shadow: 0 10px 28px rgba(25,35,45,.12); overflow: hidden; }
+    .gallery-card a { display: block; color: inherit; text-decoration: none; }
+    .gallery-card img { display: block; width: 100%; height: auto; background: #fff; cursor: zoom-in; }
+    .gallery-caption { display: grid; gap: 4px; padding: 12px 14px 14px; }
+    .gallery-caption-title { color: #333; font-size: 14px; font-weight: 700; line-height: 1.25; }
+    .gallery-caption-meta { color: #66717c; font-size: 12px; line-height: 1.4; }
     .view-tabs { background: rgba(255,255,255,.95); border: 1px solid rgba(30,45,60,.08); border-radius: 8px; box-shadow: 0 8px 26px rgba(25,35,45,.16); display: grid; gap: 7px; width: min(430px, calc(100vw - 18px)); max-width: calc(100vw - 18px); overflow: hidden; padding: 6px; backdrop-filter: blur(8px); }
     .view-tabs-desktop { display: grid; gap: 7px; }
     .view-tabs-mobile { display: none; }
@@ -83,6 +100,16 @@
     .routing-route-line.dijkstra { background: #f59e0b; }
     .routing-route-line.astar { background: #2563eb; }
     @media (max-width: 640px) {
+      .gallery-view { padding: 70px 10px 12px; }
+      .gallery-header { padding: 12px 12px 0; gap: 5px; }
+      .gallery-title { font-size: 20px; }
+      .gallery-description { font-size: 12px; line-height: 1.35; }
+      .gallery-nav { gap: 6px; }
+      .gallery-nav button { font-size: 11px; min-height: 30px; padding: 0 10px; }
+      .gallery-grid { grid-template-columns: 1fr; gap: 12px; padding: 0 12px 12px; }
+      .gallery-caption { padding: 10px 12px 12px; }
+      .gallery-caption-title { font-size: 13px; }
+      .gallery-caption-meta { font-size: 11px; }
       .legend { min-width: 0; width: min(220px, calc(100vw - 12px)); max-width: calc(100vw - 12px); max-height: min(58vh, 420px); overflow-y: auto; overflow-x: hidden; padding: 9px 10px 10px; }
       .legend-title { font-size: 13px; margin-bottom: 8px; white-space: normal; line-height: 1.15; }
       .legend-row { font-size: 11px; gap: 7px; margin: 6px 0; }
@@ -168,6 +195,30 @@
         description: 'Delay detour on the actual TTC map. The regular route is red and the sample path reroutes around the delayed segment in blue.'
       }
     };
+    function buildTrialGalleryItems(folder, label) {
+      return Array.from({ length: 10 }, (_, index) => {
+        const trial = String(index + 1).padStart(2, '0');
+        return {
+          src: `${folder}/trial_${trial}.png`,
+          title: `${label} Trial ${trial}`,
+          meta: 'Open the image in a new tab to zoom in.'
+        };
+      });
+    }
+    const galleryViews = {
+      routingPathsGallery: {
+        title: 'Routing Paths',
+        kicker: 'Static Figures',
+        description: '10 trial route maps from the routing_paths folder. Open any image in a new tab to zoom in.',
+        items: buildTrialGalleryItems('outputs/routing_paths', 'Routing Path')
+      },
+      weightPathsGallery: {
+        title: 'Weight Paths',
+        kicker: 'Static Figures',
+        description: '10 trial route maps from the weight_paths folder. Open any image in a new tab to zoom in.',
+        items: buildTrialGalleryItems('outputs/weight_paths', 'Weight Path')
+      }
+    };
     const viewTabGroups = [
       {
         title: 'Overview',
@@ -197,10 +248,19 @@
           { view: 'service', label: 'Service Intensity' },
           { view: 'majorHubs', label: 'Transit Hubs' }
         ]
+      },
+      {
+        title: 'Figures',
+        views: [
+          { view: 'routingPathsGallery', label: 'Routing Paths' },
+          { view: 'weightPathsGallery', label: 'Weight Paths' }
+        ]
       }
     ];
     let tabsDiv = null;
     let tabsSelect = null;
+    let galleryDiv = null;
+    let mapStateBeforeGallery = null;
     function syncTabsControl() {
       if (tabsSelect) tabsSelect.value = activeView;
     }
@@ -210,6 +270,9 @@
     let stopsLoaded = false;
     let stopsBoundsFit = false;
     const map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([43.716, -79.39], 10);
+    galleryDiv = L.DomUtil.create('div', 'gallery-view', document.body);
+    L.DomEvent.disableClickPropagation(galleryDiv);
+    L.DomEvent.disableScrollPropagation(galleryDiv);
     const topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(map);
     const lightBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri' });
     const lightLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Labels &copy; Esri' });
@@ -321,6 +384,46 @@
         return `<div class="popup-metric-row"><span class="popup-metric-label">${escapeHtml(label)}</span><span class="popup-metric-value">${escapeHtml(value || 'No data')}</span></div>`;
       }).join('');
       return `<div class="popup-metrics">${rows}</div>`;
+    }
+    function setMapControlVisibility(visible) {
+      const container = map.getContainer();
+      const zoomControl = container.querySelector('.leaflet-control-zoom');
+      const layersControl = container.querySelector('.leaflet-control-layers');
+      if (zoomControl) zoomControl.style.display = visible ? '' : 'none';
+      if (layersControl) layersControl.style.display = visible ? '' : 'none';
+      if (legendDiv) legendDiv.style.display = visible ? '' : 'none';
+    }
+    function renderGallery(view) {
+      if (!galleryDiv || !galleryViews[view]) return;
+      const config = galleryViews[view];
+      galleryDiv.innerHTML = `
+        <div class="gallery-shell">
+          <div class="gallery-header">
+            <div class="gallery-kicker">${escapeHtml(config.kicker || 'Static Figures')}</div>
+            <div class="gallery-title">${escapeHtml(config.title || 'Gallery')}</div>
+            <div class="gallery-description">${escapeHtml(config.description || '')}</div>
+            <div class="gallery-nav">
+              <button type="button" data-view="mode">Map View</button>
+              ${Object.entries(galleryViews).map(([galleryView, galleryConfig]) => `<button type="button" data-view="${escapeHtml(galleryView)}"${galleryView === view ? ' class="active"' : ''}>${escapeHtml(galleryConfig.title)}</button>`).join('')}
+            </div>
+          </div>
+          <div class="gallery-grid">
+            ${config.items.map(item => `
+              <article class="gallery-card">
+                <a href="${escapeHtml(item.src)}" target="_blank" rel="noreferrer">
+                  <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.title)}">
+                  <div class="gallery-caption">
+                    <div class="gallery-caption-title">${escapeHtml(item.title)}</div>
+                    <div class="gallery-caption-meta">${escapeHtml(item.meta || 'Open the image in a new tab for full size.')}</div>
+                  </div>
+                </a>
+              </article>
+            `).join('')}
+          </div>
+        </div>`;
+      galleryDiv.querySelectorAll('.gallery-nav button[data-view]').forEach(button => {
+        button.addEventListener('click', () => setView(button.dataset.view || 'mode'));
+      });
     }
     function parseCsv(text) {
       const rows = [];
@@ -663,26 +766,52 @@
       addStopsChunked();
     });
     loadHubCsvLayers();
-    L.control.layers({ 'ArcGIS Topographic': topo, 'Light Gray Canvas': lightGray, OpenStreetMap: osm }, {}, { collapsed: true }).addTo(map);
+    const layersControl = L.control.layers({ 'ArcGIS Topographic': topo, 'Light Gray Canvas': lightGray, OpenStreetMap: osm }, {}, { collapsed: true }).addTo(map);
     function setView(view) {
+      const previousView = activeView;
+      const wasGallery = previousView in galleryViews;
+      const isGallery = view in galleryViews;
+      if (isGallery && !wasGallery) {
+        mapStateBeforeGallery = {
+          center: map.getCenter(),
+          zoom: map.getZoom()
+        };
+      }
       activeView = view;
+      const galleryActive = isGallery;
       Object.values(modeLayers).forEach(layer => map.removeLayer(layer));
       Object.values(metricLayers).forEach(layer => map.removeLayer(layer));
       map.removeLayer(routingLayer);
-      map.getContainer().style.background = '#e8e4d8';
-      if (view in routingSampleViews) {
-        renderRoutingSample(true);
-      } else {
+      map.getContainer().style.background = galleryActive ? '#efeee7' : '#e8e4d8';
+      if (tabsDiv) tabsDiv.style.display = galleryActive ? 'none' : '';
+      if (galleryActive) {
         routingLayer.clearLayers();
-        if (view in metricLayers) metricLayers[view].addTo(map); else Object.values(modeLayers).forEach(layer => layer.addTo(map));
-      }
-      if (view === 'mode' && stopsLoaded && bounds.length && !stopsBoundsFit) {
-        map.fitBounds(bounds, { padding: [28, 28] });
-        stopsBoundsFit = true;
+        renderGallery(view);
+        if (galleryDiv) galleryDiv.classList.add('active');
+        map.scrollWheelZoom.disable();
+        setMapControlVisibility(false);
+      } else {
+        if (galleryDiv) galleryDiv.classList.remove('active');
+        map.scrollWheelZoom.enable();
+        setMapControlVisibility(true);
+        if (wasGallery && view === 'mode' && mapStateBeforeGallery) {
+          map.setView(mapStateBeforeGallery.center, mapStateBeforeGallery.zoom, { animate: false });
+          mapStateBeforeGallery = null;
+        }
+        if (view in routingSampleViews) {
+          renderRoutingSample(true);
+        } else {
+          routingLayer.clearLayers();
+          if (view in metricLayers) metricLayers[view].addTo(map); else Object.values(modeLayers).forEach(layer => layer.addTo(map));
+        }
+        if (view === 'mode' && stopsLoaded && bounds.length && !stopsBoundsFit) {
+          map.fitBounds(bounds, { padding: [28, 28] });
+          stopsBoundsFit = true;
+        }
       }
       document.querySelectorAll('.view-tab').forEach(button => button.classList.toggle('active', button.dataset.view === view));
       syncTabsControl();
-      if (!(view in routingSampleViews)) updateLegend();
+      if (!galleryActive && !(view in routingSampleViews)) updateLegend();
     }
     const tabs = L.control({ position: 'topright' });
     tabs.onAdd = function () {
